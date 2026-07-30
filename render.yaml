@@ -6,6 +6,8 @@ services:
     buildCommand: npm install
     startCommand: node src/server.js
     envVars:
+      - key: INFERENCE
+        value: proxy
       - key: AGENT_ADDRESS
         value: "0x161D9DFe071D024637f7cA8DB3D5FB0CE27833E1"
       - key: X402_FACILITATOR

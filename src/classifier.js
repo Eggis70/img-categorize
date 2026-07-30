@@ -14,7 +14,7 @@ let classifierPromise = null;
 
 export function getClassifier() {
   if (!classifierPromise) {
-    classifierPromise = pipeline("zero-shot-image-classification", MODEL);
+    classifierPromise = pipeline("zero-shot-image-classification", MODEL, { dtype: "q8" });
   }
   return classifierPromise;
 }

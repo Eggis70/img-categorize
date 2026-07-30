@@ -2,11 +2,15 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import { createPublicClient, http, formatUnits, formatEther, erc20Abi } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 
 const AGENT_ADDRESS = process.env.AGENT_ADDRESS;
+const SERVICE_URL = process.env.SERVICE_URL; // permanent front door (Render)
+const INFER_TOKEN = process.env.INFER_TOKEN;
+const signer = process.env.AGENT_PRIVATE_KEY ? privateKeyToAccount(process.env.AGENT_PRIVATE_KEY) : null;
 const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const INTERVAL_MS = 15 * 60 * 1000;
+const INTERVAL_MS = 10 * 60 * 1000;
 const DATA_DIR = path.join(process.cwd(), "data");
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -83,11 +87,32 @@ function currentTunnelUrl() {
   } catch { return null; }
 }
 
-// Keep our 402 Index listing pointed at the live tunnel URL — quick tunnels
-// rotate on restart, which would otherwise orphan the listing.
-async function keepListingFresh() {
+// Announce the current tunnel URL to the Render front door, signed with the
+// agent wallet key so nobody else can hijack the inference upstream.
+async function heartbeatUpstream() {
+  if (!SERVICE_URL || !INFER_TOKEN || !signer) return { source: "heartbeat", skipped: "not configured" };
   const url = currentTunnelUrl();
-  if (!url) return { source: "402index", skipped: "no tunnel url" };
+  if (!url) return { source: "heartbeat", skipped: "no tunnel url" };
+  const ts = Date.now();
+  const payload = { url, token: INFER_TOKEN, ts };
+  try {
+    const signature = await signer.signMessage({ message: JSON.stringify(payload) });
+    const res = await fetch(`${SERVICE_URL}/internal/upstream`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...payload, signature }),
+      signal: AbortSignal.timeout(60000),
+    });
+    return { source: "heartbeat", status: res.status };
+  } catch (err) {
+    return { source: "heartbeat", error: String(err?.message ?? err) };
+  }
+}
+
+// Keep our 402 Index listing pointed at the permanent front-door URL.
+async function keepListingFresh() {
+  const url = SERVICE_URL || currentTunnelUrl();
+  if (!url) return { source: "402index", skipped: "no url" };
   const state = loadState();
   if (state.registeredUrl === url) return { source: "402index", ok: "listing current" };
   try {
@@ -114,13 +139,14 @@ async function keepListingFresh() {
 }
 
 async function tick() {
-  const [balances, claw, bazaar, listing] = await Promise.all([
+  const [balances, claw, bazaar, listing, heartbeat] = await Promise.all([
     checkBalances().catch((e) => ({ error: String(e?.message ?? e) })),
     scanClawTasks(),
     scanBazaar(),
     keepListingFresh(),
+    heartbeatUpstream(),
   ]);
-  const snapshot = { balances, claw, bazaar, listing };
+  const snapshot = { balances, claw, bazaar, listing, heartbeat };
   log("worker.jsonl", snapshot);
   console.log(new Date().toISOString(), JSON.stringify(snapshot));
 }
