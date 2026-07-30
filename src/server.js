@@ -82,7 +82,78 @@ async function runInference(image, labels) {
   return results;
 }
 
-app.get("/", (_req, res) => {
+const LANDING_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>img-categorize — pay-per-call image categorization</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#fafafa; --muted:#666; --card:#fff; --line:#e5e5e5; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e8e8e8; --bg:#111; --muted:#999; --card:#1c1c1c; --line:#2a2a2a; --accent:#60a5fa; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; color:var(--fg); background:var(--bg); line-height:1.6; }
+  main { max-width: 720px; margin: 0 auto; padding: 3rem 1.25rem; }
+  h1 { font-size: 1.9rem; margin: 0 0 .25rem; }
+  .tag { color: var(--muted); margin: 0 0 2rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1.25rem 1.5rem; margin:1rem 0; }
+  .price { font-size:1.4rem; font-weight:700; }
+  code, pre { font-family: ui-monospace, monospace; font-size:.85rem; }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:1rem; overflow-x:auto; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:.6rem 1.1rem; font-size:1rem; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  #demo-out { white-space:pre-wrap; margin-top:.75rem; }
+  a { color: var(--accent); }
+  .foot { color:var(--muted); font-size:.85rem; margin-top:2.5rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>img-categorize</h1>
+  <p class="tag">Zero-shot image categorization for AI agents and apps. No account. No API key. Pay per call.</p>
+
+  <div class="card">
+    <span class="price">$0.005</span> per image · USDC on Base · paid via the <a href="https://x402.org">x402 protocol</a>
+  </div>
+
+  <div class="card">
+    <strong>Try it free</strong>
+    <p>Runs the real model on a sample image.</p>
+    <button id="demo-btn" onclick="runDemo()">Run demo</button>
+    <div id="demo-out"></div>
+  </div>
+
+  <div class="card">
+    <strong>Use it</strong>
+<pre>POST /categorize
+{ "image": "https://…/photo.jpg",
+  "labels": ["cat", "dog", "car"] }   // optional
+
+→ 402 with payment details → pay $0.005 USDC →
+{ "results": [ { "label": "cat", "score": 0.91 }, … ] }</pre>
+    <p>Any x402 client handles payment automatically. Machine-readable spec: <a href="/openapi.json">openapi.json</a></p>
+  </div>
+
+  <p class="foot">Custom labels (2–50) or a sensible default set · CLIP under the hood · buyers are never charged for failed requests</p>
+</main>
+<script>
+async function runDemo() {
+  const btn = document.getElementById('demo-btn'), out = document.getElementById('demo-out');
+  btn.disabled = true; out.textContent = 'running…';
+  try {
+    const r = await fetch('/demo'); const j = await r.json();
+    out.textContent = j.results ? j.results.slice(0,5).map(x => x.label + '  ' + (100*x.score).toFixed(1) + '%').join('\\n') : JSON.stringify(j);
+  } catch { out.textContent = 'demo unavailable right now'; }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>`;
+
+app.get("/", (req, res) => {
+  if (req.accepts(["json", "html"]) === "html") {
+    return res.type("html").send(LANDING_HTML);
+  }
   res.json({
     service: "img-categorize",
     description:
