@@ -109,33 +109,42 @@ async function heartbeatUpstream() {
   }
 }
 
-// Keep our 402 Index listing pointed at the permanent front-door URL.
+const LISTINGS = [
+  { path: "categorize", name: "img-categorize: zero-shot image categorization", priceUsd: 0.005 },
+  { path: "caption", name: "img-categorize: image captioning", priceUsd: 0.005 },
+  { path: "ocr", name: "img-categorize: OCR text extraction", priceUsd: 0.01 },
+  { path: "embed", name: "img-categorize: CLIP image embeddings", priceUsd: 0.003 },
+];
+
+// Keep our 402 Index listings pointed at the permanent front-door URL.
 async function keepListingFresh() {
   const url = SERVICE_URL || currentTunnelUrl();
   if (!url) return { source: "402index", skipped: "no url" };
   const state = loadState();
-  if (state.registeredUrl === url) return { source: "402index", ok: "listing current" };
-  try {
-    const res = await fetch("https://402index.io/api/v1/register", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        url: `${url}/categorize`,
-        name: "img-categorize: zero-shot image categorization",
-        protocol: "x402",
-        priceUsd: 0.005,
-      }),
-      signal: AbortSignal.timeout(25000),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok) {
-      fs.writeFileSync(STATE_FILE, JSON.stringify({ ...state, registeredUrl: url, serviceId: body?.service?.id }));
-      return { source: "402index", registered: url, id: body?.service?.id };
+  const done = state.registered402 ?? {};
+  const results = [];
+  for (const l of LISTINGS) {
+    if (done[l.path] === url) continue;
+    try {
+      const res = await fetch("https://402index.io/api/v1/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: `${url}/${l.path}`, name: l.name, protocol: "x402", priceUsd: l.priceUsd }),
+        signal: AbortSignal.timeout(25000),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        done[l.path] = url;
+        results.push(`${l.path}:ok`);
+      } else {
+        results.push(`${l.path}:${body?.error ?? res.status}`);
+      }
+    } catch (err) {
+      results.push(`${l.path}:${String(err?.message ?? err).slice(0, 40)}`);
     }
-    return { source: "402index", error: body?.error ?? `HTTP ${res.status}` };
-  } catch (err) {
-    return { source: "402index", error: String(err?.message ?? err) };
   }
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ ...state, registered402: done }));
+  return { source: "402index", results: results.length ? results : ["all current"] };
 }
 
 async function tick() {
