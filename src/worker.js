@@ -154,3 +154,5 @@ async function tick() {
 console.log(`worker up: wallet=${AGENT_ADDRESS}, interval=${INTERVAL_MS / 60000}min`);
 tick();
 setInterval(tick, INTERVAL_MS);
+// Faster heartbeat so the front door recovers quickly after its own redeploys.
+setInterval(() => heartbeatUpstream().catch(() => {}), 4 * 60 * 1000);
