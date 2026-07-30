@@ -1,59 +1,57 @@
-# agent-hustle
+# img-categorize / agent-hustle
 
-An autonomous money system with two income paths, one wallet, zero marginal cost.
+An autonomous money system: a pay-per-call **vision toolbox** for AI agents, plus a
+marketplace worker. Payments via [x402](https://x402.org) — USDC on Base, no accounts,
+no API keys, settled straight to a self-custody wallet.
 
-## What it is
+**Live:** https://img-categorize.onrender.com
 
-1. **Paid API (the product):** `img-categorize` — zero-shot image categorization running a
-   local CLIP model (no per-call cost). Buyers (humans or other AI agents) pay **$0.005
-   USDC on Base per call** through the [x402 payment protocol](https://x402.org) — no
-   accounts, no API keys, payment settles on-chain straight to the agent wallet.
-2. **Marketplace worker:** a loop that every 15 min checks wallet balances, scans the
-   [ClawTasks](https://clawtasks.com) agent bounty board for autonomously-doable work
-   (logged to `data/opportunities.jsonl`), and scans the x402 Bazaar for market intel.
+## The toolbox
 
-## The wallet
+| Endpoint | Does | Price |
+|---|---|---|
+| `POST /categorize` | zero-shot labels + confidence, custom label sets | $0.005 |
+| `POST /caption` | one-sentence image description | $0.005 |
+| `POST /ocr` | printed-text extraction (English) | $0.01 |
+| `POST /embed` | 512-dim CLIP vector | $0.003 |
 
-- Address: see `AGENT_ADDRESS` in `.env`
-- Private key: `AGENT_PRIVATE_KEY` in `.env` (mode 600). **This file is the money — back
-  it up somewhere safe. Anyone with the key can take the funds.**
-- Import into MetaMask/Rabby (network: Base) any time to withdraw.
+Free: `GET /demo`, `GET /openapi.json`, `GET /.well-known/x402`, landing page.
+Buyers are never charged for failed requests (settlement cancels on any 4xx/5xx).
 
-## Run it
+## Architecture
+
+- **Front door** (Render free tier, `INFERENCE=proxy`): stable URL, x402 paywall,
+  ~100MB RAM, no models. Auto-deploys from this repo's master.
+- **Inference box** (any machine with RAM, `INFERENCE=local`): runs the actual models
+  (CLIP, ViT-GPT2, Tesseract) behind `/infer`, exposed via a cloudflared quick tunnel.
+- The worker announces the current tunnel URL to the front door every few minutes via
+  `/internal/upstream`, **signed with the agent wallet key** and verified on-chain-style
+  (viem `verifyMessage`) — no shared-secret setup, no hijackable upstream.
+- Front door offline-safe: no upstream → 503 → buyer not charged.
+
+## Run the home side
 
 ```bash
-./start.sh          # starts server + tunnel + worker (idempotent)
-node src/status.js  # wallet balance, sales, opportunities, public URL
+./start.sh          # server (local mode) + tunnel + worker, idempotent
+node src/status.js  # balances, sales, listings, current URLs
 ```
 
-Logs live in `data/`: `server.log`, `worker.jsonl`, `ledger.jsonl` (sales),
-`opportunities.jsonl` (doable bounties), `tunnel.log`.
+The worker (every 10 min): wallet balances, ClawTasks bounty scan, Bazaar market intel,
+402index listing upkeep, signed upstream heartbeat (plus a fast 4-min heartbeat timer).
 
-## Buying a call (how customers use it)
+## Distribution
 
-Any x402 client works, e.g. `@x402/fetch` with a funded wallet:
+Listed on **x402scan** (SIWX wallet-signature registration: `node src/register-x402scan.js <url>`)
+and **402index** (keyless, worker maintains it). PR to awesome-x402 pending. Moltbook
+agent **ImgCatWorker** registered (first post queued pending human claim).
 
-```
-POST <public-url>/categorize
-{"image": "https://...jpg", "labels": ["cat", "dog", "car"]}   # labels optional
-→ 402 with payment requirements → client pays $0.005 USDC → results
-```
+## Wallet
 
-## Known limits / next steps
+Self-custody, generated locally with viem — no exchange, no KYC. Address in `.env`
+(`AGENT_ADDRESS`), private key in `.env` (`AGENT_PRIVATE_KEY`, mode 600). **Back up
+`.env` — it is the money.** Import into any wallet app (network: Base) to withdraw.
 
-- **Tunnel URL is ephemeral** — it changes if cloudflared restarts. Fix: free Cloudflare
-  account + named tunnel, or deploy to a free host. Until then the URL is unstable, which
-  hurts discovery.
-- **Bazaar listing**: a free Coinbase Developer Platform account (CDP API keys) switches
-  the facilitator to Coinbase's and gets the service auto-indexed in the x402 Bazaar,
-  where agent buyers actually search. Biggest marketing lever, ~5 min of human signup.
-- **ClawTasks claiming** needs (a) ~$5-10 USDC in the wallet for the 10% claim stakes and
-  gas, (b) agent registration + a Moltbook verification post. Worker currently
-  scans/scores only.
-- **Machine must stay on** (WSL). A $0-5/mo VPS or free-tier host removes that.
+## Ground rules
 
-## Ground rules baked in
-
-No botting of human-only platforms (MTurk etc.), no fake engagement, no spam. This
-system only sells honest compute and works agent-native marketplaces that explicitly
-welcome AI workers.
+No botting human-only platforms, no fake engagement, no spam. This system sells honest
+compute and works agent-native marketplaces that explicitly welcome AI workers.
