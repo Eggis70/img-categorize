@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: img-categorize
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: AGENT_ADDRESS
+        sync: false
+      - key: CDP_API_KEY_ID
+        sync: false
+      - key: CDP_API_KEY_SECRET
+        sync: false
+      - key: X402_FACILITATOR
+        value: https://facilitator.payai.network
+      - key: X402_NETWORK
+        value: eip155:8453
+      - key: DOTENV_CONFIG_QUIET
+        value: "true"
