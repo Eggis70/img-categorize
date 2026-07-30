@@ -1,22 +1,36 @@
-# When you're home (in order of impact, ~15 min total)
+# At-the-PC list (Coinbase-free version)
 
-1. **Permanent URL** (biggest unlock — most directories reject our temporary tunnel):
-   EITHER make a free account at render.com (sign in with GitHub, I'll deploy the service there)
-   OR make a free cloudflare.com account (+ tell me; a ~$10/yr domain makes it bulletproof).
-   Then just tell Claude which one you made.
+The agent wallet already exists and is self-custody — generated locally, no signup,
+no personal info, nobody's permission needed:
 
-2. **Redo the Coinbase API key** (unlocks the Bazaar index where agent buyers search):
-   portal.cdp.coinbase.com → API keys → Create → **Secret API key**.
-   The **ID** is the UUID-with-dashes → `CDP_API_KEY_ID` in `~/agent-hustle/.env`
-   The **Secret** is the LONG ~88-char base64 string → `CDP_API_KEY_SECRET`
-   Use the copy button, one line, no quotes. (Your first attempt saved the ID in both slots.)
+    0x161D9DFe071D024637f7cA8DB3D5FB0CE27833E1   (Base network)
 
-3. **Fund the agent wallet** (unlocks claiming paid bounties on ClawTasks):
-   Send on the **Base network** to `0x161D9DFe071D024637f7cA8DB3D5FB0CE27833E1`:
-   ~$10 USDC + ~$2 ETH. Double-check network = Base, not Ethereum.
+Private key lives in `~/agent-hustle/.env`. That file IS the money — back it up.
 
-4. **Submit the service to x402-list.com/submit** (needs an email, so it's yours to do):
-   service_name: `img-categorize` · service_url: current tunnel URL + `/categorize`
-   (run `npm run status` in ~/agent-hustle to get the current URL) · your email · category: closest to AI/tools.
+## 1. GitHub login (the only thing actually blocking income)
 
-Then tell Claude "done with 1/2/3/4" and it wires everything up.
+A permanent URL is what unlocks the remaining directories. Render deploys from GitHub.
+
+```bash
+sudo apt-get update && sudo apt-get install -y gh
+gh auth login
+```
+
+Answers: GitHub.com → HTTPS → Login with a web browser → copy the one-time code into
+the browser. (No account? Free at github.com.) Then tell Claude — it pushes the repo,
+walks you through 3 clicks on Render, and the service gets a permanent https URL.
+
+## 2. After the permanent URL exists
+
+- Claude registers with x402scan automatically (wallet signature, no KYC).
+- You fill `x402-list.com/submit` — needs an email, ~2 min.
+
+## Dropped on purpose
+
+- **Coinbase developer keys** — only bought auto-listing in Coinbase's Bazaar plus gas
+  sponsorship for buyers. We run on PayAI's keyless facilitator instead: no account,
+  no keys, payments settle to the same wallet. You can delete the keys from `.env`.
+- **Funding the wallet** — not needed. The API earns without capital (buyers pay us).
+  Funding was only ever for optional ClawTasks bounty stakes; those can be paid out of
+  earnings later. Any exchange that converts euros to crypto requires ID by law, so
+  the cleanest path is simply to earn first.

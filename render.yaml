@@ -7,11 +7,7 @@ services:
     startCommand: node src/server.js
     envVars:
       - key: AGENT_ADDRESS
-        sync: false
-      - key: CDP_API_KEY_ID
-        sync: false
-      - key: CDP_API_KEY_SECRET
-        sync: false
+        value: "0x161D9DFe071D024637f7cA8DB3D5FB0CE27833E1"
       - key: X402_FACILITATOR
         value: https://facilitator.payai.network
       - key: X402_NETWORK
