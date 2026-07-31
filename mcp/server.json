@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.blixtworks.www/tools",
+  "title": "Blixtworks",
+  "description": "Vision, web and data tools paid per call in USDC on Base via x402. No account, no API key.",
+  "version": "1.0.1",
+  "websiteUrl": "https://www.blixtworks.com",
+  "repository": {
+    "url": "https://github.com/Eggis70/img-categorize",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "blixtworks-mcp",
+      "version": "1.0.1",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "BLIXTWORKS_PRIVATE_KEY",
+          "description": "Private key of a wallet holding a small amount of USDC on Base. Used only to sign per-request payments (well under a cent per call). Use a dedicated low-balance wallet. Without it the free status tool still works.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
