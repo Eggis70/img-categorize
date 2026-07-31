@@ -59,6 +59,18 @@ async function callTool(path, body) {
       body: JSON.stringify(body),
     });
     const text = await res.text();
+    if (res.status === 402) {
+      // Payment was signed but rejected — surface the actual reason.
+      let reason = "payment rejected";
+      try {
+        const header = res.headers.get("payment-required");
+        if (header) reason = JSON.parse(Buffer.from(header, "base64").toString()).error ?? reason;
+      } catch { /* keep default */ }
+      const friendly = reason.includes("insufficient_balance")
+        ? `Payment failed: wallet ${walletAddress} has too little USDC on Base. Top it up with a dollar or two — each call costs well under a cent.`
+        : `Payment failed: ${reason}`;
+      return { content: [{ type: "text", text: friendly }], isError: true };
+    }
     if (!res.ok) {
       return { content: [{ type: "text", text: `Request failed (${res.status}): ${text.slice(0, 500)}` }], isError: true };
     }

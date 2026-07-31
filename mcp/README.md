@@ -23,10 +23,17 @@ Failed requests are never charged.
 
 ## Install
 
+Clone and install (npm package publish pending):
+
+```bash
+git clone https://github.com/Eggis70/img-categorize.git
+cd img-categorize/mcp && npm install
+```
+
 **Claude Code:**
 
 ```bash
-claude mcp add blixtworks -- npx -y blixtworks-mcp
+claude mcp add blixtworks --env BLIXTWORKS_PRIVATE_KEY=0xyourkey -- node /absolute/path/to/img-categorize/mcp/server.js
 ```
 
 **Claude Desktop / any MCP client** — add to your config:
@@ -35,8 +42,8 @@ claude mcp add blixtworks -- npx -y blixtworks-mcp
 {
   "mcpServers": {
     "blixtworks": {
-      "command": "npx",
-      "args": ["-y", "blixtworks-mcp"],
+      "command": "node",
+      "args": ["/absolute/path/to/img-categorize/mcp/server.js"],
       "env": { "BLIXTWORKS_PRIVATE_KEY": "0xyour-wallet-key" }
     }
   }

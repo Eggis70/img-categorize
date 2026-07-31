@@ -41,6 +41,8 @@ The worker (every 10 min): wallet balances, ClawTasks bounty scan, Bazaar market
 
 ## Distribution
 
+**MCP server:** `mcp/` — 10 tools with automatic x402 payment for any MCP client.
+
 Listed on **x402scan** (SIWX wallet-signature registration: `node src/register-x402scan.js <url>`)
 and **402index** (keyless, worker maintains it). PR to awesome-x402 pending. Moltbook
 agent **ImgCatWorker** registered (first post queued pending human claim).
