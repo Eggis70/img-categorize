@@ -274,8 +274,22 @@ const MILESTONES = [
 ];
 
 let dashCache = { ts: 0, data: null };
+let dashRefreshing = null;
+
+// Never block a request on the chain: serve cached data immediately and
+// refresh in the background. Only the very first call (cold start) waits.
 async function dashboardData() {
-  if (Date.now() - dashCache.ts < 60_000 && dashCache.data) return dashCache.data;
+  const stale = Date.now() - dashCache.ts > 60_000;
+  if (dashCache.data && !stale) return dashCache.data;
+  if (dashCache.data && stale) {
+    dashRefreshing ??= fetchDashboard().finally(() => { dashRefreshing = null; });
+    return dashCache.data;
+  }
+  dashRefreshing ??= fetchDashboard().finally(() => { dashRefreshing = null; });
+  return dashRefreshing;
+}
+
+async function fetchDashboard() {
   const out = {
     wallet: AGENT_ADDRESS,
     explorer: `https://basescan.org/address/${AGENT_ADDRESS}`,
@@ -300,7 +314,7 @@ async function dashboardData() {
   try {
     const res = await fetch(
       `https://base.blockscout.com/api/v2/addresses/${AGENT_ADDRESS}/token-transfers?type=ERC-20&filter=to`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: AbortSignal.timeout(8000) },
     );
     if (res.ok) {
       const { items = [] } = await res.json();
@@ -462,7 +476,8 @@ if (INFERENCE === "local") {
 }
 
 app.listen(PORT, async () => {
-  console.log(`img-categorize listening on :${PORT} mode=${INFERENCE}`);
+  dashboardData().catch(() => {}); // warm the dashboard cache at boot
+  console.log(`blixtworks listening on :${PORT} mode=${INFERENCE}`);
   console.log(`payTo=${AGENT_ADDRESS} facilitator=${X402_FACILITATOR}`);
   if (INFERENCE === "local") {
     console.log("warming up categorizer (others lazy-load)...");
