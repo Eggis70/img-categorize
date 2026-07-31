@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.blixtworks.www/tools",
   "title": "Blixtworks",
-  "description": "Vision, web and data tools paid per call in USDC on Base via x402. No account, no API key.",
-  "version": "1.0.3",
+  "description": "63 pay-per-call tools for agents: vision, text, data, web, blockchain. USDC on Base via x402.",
+  "version": "1.1.0",
   "websiteUrl": "https://www.blixtworks.com",
   "remotes": [
     {
@@ -19,8 +19,10 @@
     {
       "registryType": "npm",
       "identifier": "blixtworks-mcp",
-      "version": "1.0.2",
-      "transport": { "type": "stdio" },
+      "version": "1.1.0",
+      "transport": {
+        "type": "stdio"
+      },
       "environmentVariables": [
         {
           "name": "BLIXTWORKS_PRIVATE_KEY",
