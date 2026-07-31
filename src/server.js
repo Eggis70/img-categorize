@@ -145,6 +145,13 @@ const LANDING_HTML = `<!doctype html>
     <p>Any x402 client handles payment automatically. Machine-readable spec: <a href="/openapi.json">openapi.json</a></p>
   </div>
 
+  <div class="card">
+    <strong>Or plug it straight into your agent (MCP)</strong>
+    <p>All nine tools, payment handled for you:</p>
+<pre>claude mcp add blixtworks --env BLIXTWORKS_PRIVATE_KEY=0xyourkey -- npx -y blixtworks-mcp</pre>
+    <p>Any MCP client works — <a href="https://www.npmjs.com/package/blixtworks-mcp">npm: blixtworks-mcp</a>. Point the key at a low-balance wallet holding a little USDC on Base; each call costs well under a cent.</p>
+  </div>
+
   <p class="foot">Free local models under the hood · buyers are never charged for failed requests · listed on x402scan &amp; 402index</p>
 </main>
 <script>
