@@ -3,47 +3,7 @@
 // kind: "vision" tasks run on the inference box (proxied); "util" tasks are
 // deterministic and run in-process everywhere — they work even when the
 // inference box is offline.
-export const TASK_META = {
-  md: {
-    kind: "util",
-    price: "$0.02",
-    priceUsd: 0.02,
-    description:
-      "HTML to Markdown. POST {\"url\": \"<https url>\"} or {\"html\": \"<raw html>\"} (+ optional \"mode\": \"article\"|\"full\", default article) -> clean LLM-ready markdown with title/byline.",
-    output: { markdown: "string", title: "string", byline: "string|null" },
-  },
-  pdf: {
-    kind: "util",
-    price: "$0.03",
-    priceUsd: 0.03,
-    description:
-      "PDF text extraction. POST {\"pdf\": \"<https url or data:application/pdf base64 URI>\"} -> plain text + page count + metadata.",
-    output: { text: "string", pages: "number", info: "object" },
-  },
-  qr: {
-    kind: "util",
-    price: "$0.01",
-    priceUsd: 0.01,
-    description:
-      "QR code generation. POST {\"text\": \"<content>\", \"format\": \"svg\"|\"png\"} -> QR code as SVG string or PNG data URI.",
-    output: { svg: "string (or png: data URI)" },
-  },
-  exif: {
-    kind: "util",
-    price: "$0.01",
-    priceUsd: 0.01,
-    description:
-      "EXIF metadata extraction. POST {\"image\": \"<https url or data:image URI>\"} -> camera, timestamps, GPS and other metadata.",
-    output: { exif: "object", gps: "object|null" },
-  },
-  dns: {
-    kind: "util",
-    price: "$0.01",
-    priceUsd: 0.01,
-    description:
-      "DNS lookup. POST {\"domain\": \"example.com\", \"type\": \"A\"|\"AAAA\"|\"MX\"|\"TXT\"|\"NS\"|\"CNAME\"|\"all\"} -> resolved records.",
-    output: { records: "object" },
-  },
+export const VISION_META = {
   categorize: {
     kind: "vision",
     price: "$0.02",

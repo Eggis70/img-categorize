@@ -5,8 +5,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { verifyMessage } from "viem";
 import { record, summary } from "./ledger.js";
-import { TASK_META } from "./tasks-meta.js";
-import { UTIL_RUNNERS } from "./util-tasks.js";
+import { TASK_META, UTIL_RUNNERS, toolsByGroup, GROUPS } from "./catalog.js";
 
 const { AGENT_ADDRESS, X402_FACILITATOR, X402_NETWORK, INFER_TOKEN } = process.env;
 const INFERENCE = process.env.INFERENCE || "local"; // "local" (runs models) | "proxy" (forwards to local via tunnel)
@@ -81,7 +80,7 @@ async function runTask(task, body) {
   return res.json();
 }
 
-const LANDING_HTML = `<!doctype html>
+const landingHtml = (TOOL_TABLE) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -113,20 +112,7 @@ const LANDING_HTML = `<!doctype html>
   <h1>⚡ Blixtworks</h1>
   <p class="tag">Pay-per-call tools for AI agents and apps. No account. No API key. USDC on Base via <a href="https://x402.org">x402</a> · <a href="/dashboard">live earnings dashboard</a></p>
 
-  <div class="card">
-    <table>
-      <tr><th>Tool</th><th>Does</th><th>Price</th></tr>
-      <tr><td><code>POST /categorize</code></td><td>zero-shot image labels + confidence (custom label sets)</td><td>$0.02</td></tr>
-      <tr><td><code>POST /caption</code></td><td>one-sentence image description</td><td>$0.02</td></tr>
-      <tr><td><code>POST /ocr</code></td><td>extract printed text from images (English)</td><td>$0.03</td></tr>
-      <tr><td><code>POST /embed</code></td><td>512-dim CLIP vector for similarity search</td><td>$0.015</td></tr>
-      <tr><td><code>POST /md</code></td><td>any webpage → clean LLM-ready Markdown</td><td>$0.02</td></tr>
-      <tr><td><code>POST /pdf</code></td><td>PDF → plain text + metadata</td><td>$0.03</td></tr>
-      <tr><td><code>POST /qr</code></td><td>QR code generation (SVG or PNG)</td><td>$0.01</td></tr>
-      <tr><td><code>POST /exif</code></td><td>EXIF metadata + GPS from images</td><td>$0.01</td></tr>
-      <tr><td><code>POST /dns</code></td><td>DNS records lookup (A/MX/TXT/NS/…)</td><td>$0.01</td></tr>
-    </table>
-  </div>
+  ${TOOL_TABLE}
 
   <div class="card">
     <strong>Try it free</strong>
@@ -168,9 +154,23 @@ async function runDemo() {
 </body>
 </html>`;
 
+function toolTableHtml() {
+  const byGroup = toolsByGroup();
+  const sections = [];
+  for (const [group, label] of Object.entries(GROUPS)) {
+    const list = byGroup[group];
+    if (!list?.length) continue;
+    const rows = list
+      .map((t) => `<tr><td><code>POST /${t.name}</code></td><td>${t.description.split(". POST")[0].split(". ")[0]}</td><td>${t.price}</td></tr>`)
+      .join("");
+    sections.push(`<div class="card"><strong>${label}</strong><table>${rows}</table></div>`);
+  }
+  return sections.join("\n");
+}
+
 app.get("/", (req, res) => {
   if (req.accepts(["json", "html"]) === "html") {
-    return res.type("html").send(LANDING_HTML);
+    return res.type("html").send(landingHtml(toolTableHtml()));
   }
   res.json({
     service: "img-categorize",
@@ -254,6 +254,24 @@ function openapiDoc(req) {
 }
 
 app.get("/openapi.json", (req, res) => res.json(openapiDoc(req)));
+
+app.get("/sitemap.xml", (req, res) => {
+  const origin = `${req.protocol}://${req.get("host")}`;
+  const paths = ["/", "/dashboard", "/llms.txt", "/openapi.json", ...Object.keys(TASK_META).map((t) => `/${t}`)];
+  const urls = paths
+    .map((p) => `  <url><loc>${origin}${p}</loc><changefreq>weekly</changefreq></url>`)
+    .join("\n");
+  res.type("application/xml").send(
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`,
+  );
+});
+
+app.get("/robots.txt", (req, res) => {
+  const origin = `${req.protocol}://${req.get("host")}`;
+  res.type("text/plain").send(
+    ["User-agent: *", "Allow: /", "", `Sitemap: ${origin}/sitemap.xml`, `# Machine-readable catalogue: ${origin}/llms.txt`, ""].join("\n"),
+  );
+});
 // Namespace ownership proof for the official MCP registry (com.blixtworks/*)
 app.get("/.well-known/mcp-registry-auth", (_req, res) =>
   res.type("text/plain").send("v=MCPv1; k=ed25519; p=XnA6pr5nXxcHXMMiPYFSXQz0Zwn72jijw0lcZzGS0WQ="),
