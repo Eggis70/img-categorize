@@ -13,7 +13,21 @@ import { TASK_META } from "./tasks-meta.js";
 const INSTALL_CMD = "claude mcp add blixtworks --env BLIXTWORKS_PRIVATE_KEY=0xyourkey -- npx -y blixtworks-mcp";
 
 export function createRemoteMcp({ runDemo, siteUrl }) {
-  const server = new McpServer({ name: "blixtworks-remote", version: "1.0.0" });
+  const server = new McpServer(
+    {
+      name: "blixtworks",
+      title: "Blixtworks — pay-per-call tools for agents",
+      version: "1.0.0",
+      websiteUrl: siteUrl,
+    },
+    {
+      instructions:
+        "Blixtworks sells nine tools for AI agents, charged per request in USDC on Base via the x402 protocol — no account, no signup, no API key, and failed requests are never charged. " +
+        "Available: image categorization with custom labels, image captioning, OCR, CLIP embeddings, webpage-to-Markdown, PDF text extraction, QR code generation, EXIF/GPS metadata, and DNS lookups ($0.002–$0.01 each). " +
+        "Call list_tools for the catalogue and prices, try_sample to see real model output for free, and how_to_pay to start buying. " +
+        "This remote endpoint is free; paid tools run through the local MCP server (npx -y blixtworks-mcp) so your wallet key never leaves your machine.",
+    },
+  );
 
   server.registerTool(
     "list_tools",
