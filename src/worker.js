@@ -109,17 +109,13 @@ async function heartbeatUpstream() {
   }
 }
 
-const LISTINGS = [
-  { path: "categorize", name: "Blixtworks: zero-shot image categorization", priceUsd: 0.02 },
-  { path: "caption", name: "Blixtworks: image captioning", priceUsd: 0.02 },
-  { path: "ocr", name: "Blixtworks: OCR text extraction", priceUsd: 0.03 },
-  { path: "embed", name: "Blixtworks: CLIP image embeddings", priceUsd: 0.015 },
-  { path: "md", name: "Blixtworks: webpage to LLM-ready Markdown", priceUsd: 0.02 },
-  { path: "pdf", name: "Blixtworks: PDF text extraction", priceUsd: 0.03 },
-  { path: "qr", name: "Blixtworks: QR code generation", priceUsd: 0.01 },
-  { path: "exif", name: "Blixtworks: EXIF metadata extraction", priceUsd: 0.01 },
-  { path: "dns", name: "Blixtworks: DNS records lookup", priceUsd: 0.01 },
-];
+// Listings derive from the catalogue so new tools are registered automatically.
+const { TASK_META } = await import("./catalog.js");
+const LISTINGS = Object.entries(TASK_META).map(([path, meta]) => ({
+  path,
+  name: `Blixtworks: ${meta.description.split(". POST")[0].split(". ")[0]}`,
+  priceUsd: meta.priceUsd,
+}));
 
 // Keep our 402 Index listings pointed at the permanent front-door URL.
 async function keepListingFresh() {

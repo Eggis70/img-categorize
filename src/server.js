@@ -255,6 +255,25 @@ function openapiDoc(req) {
 
 app.get("/openapi.json", (req, res) => res.json(openapiDoc(req)));
 
+app.get("/catalog.json", (req, res) => {
+  const origin = `${req.protocol}://${req.get("host")}`;
+  res.json({
+    service: "Blixtworks",
+    origin,
+    payment: { protocol: "x402", asset: "USDC", network: X402_NETWORK, payTo: AGENT_ADDRESS },
+    tools: Object.entries(TASK_META).map(([name, meta]) => ({
+      name,
+      group: meta.group,
+      price: meta.price,
+      priceUsd: meta.priceUsd,
+      endpoint: `${origin}/${name}`,
+      description: meta.description,
+      example: meta.example ?? {},
+      output: meta.output ?? {},
+    })),
+  });
+});
+
 app.get("/sitemap.xml", (req, res) => {
   const origin = `${req.protocol}://${req.get("host")}`;
   const paths = ["/", "/dashboard", "/llms.txt", "/openapi.json", ...Object.keys(TASK_META).map((t) => `/${t}`)];

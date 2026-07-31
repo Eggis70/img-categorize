@@ -3,9 +3,12 @@
  * Blixtworks MCP server — exposes the pay-per-call toolbox to any MCP client
  * (Claude Code, Claude Desktop, Codex, …).
  *
+ * The tool list is fetched from the live catalogue at startup, so new tools
+ * appear without republishing this package.
+ *
  * Payment is handled automatically: point BLIXTWORKS_PRIVATE_KEY at a wallet
  * holding a little USDC on Base and calls just work. Without a key the server
- * still runs — free tools work, paid ones return a clear setup message.
+ * still runs — the catalogue tool works, paid ones return a setup message.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -40,9 +43,9 @@ async function getFetch() {
 }
 
 const SETUP_HINT =
-  "This tool costs $0.01–$0.03, paid automatically in USDC on Base via the x402 protocol. " +
+  "This tool is billed per request in USDC on Base via the x402 protocol ($0.005–$0.03). " +
   "To enable it, set BLIXTWORKS_PRIVATE_KEY in the MCP server config to a wallet key holding a little USDC on Base. " +
-  "No account or signup is needed — payment happens per request.";
+  "Use a dedicated low-balance wallet. No account or signup is needed.";
 
 async function callTool(path, body) {
   const doFetch = await getFetch();
@@ -56,18 +59,17 @@ async function callTool(path, body) {
     const res = await doFetch(`${BASE_URL}/${path}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(body ?? {}),
     });
     const text = await res.text();
     if (res.status === 402) {
-      // Payment was signed but rejected — surface the actual reason.
       let reason = "payment rejected";
       try {
         const header = res.headers.get("payment-required");
         if (header) reason = JSON.parse(Buffer.from(header, "base64").toString()).error ?? reason;
       } catch { /* keep default */ }
       const friendly = reason.includes("insufficient_balance")
-        ? `Payment failed: wallet ${walletAddress} has too little USDC on Base. Top it up with a dollar or two — calls cost $0.01–$0.03 each.`
+        ? `Payment failed: wallet ${walletAddress} has too little USDC on Base. Top it up with a dollar or two — calls cost $0.005–$0.03 each.`
         : `Payment failed: ${reason}`;
       return { content: [{ type: "text", text: friendly }], isError: true };
     }
@@ -80,131 +82,78 @@ async function callTool(path, body) {
   }
 }
 
-const server = new McpServer({ name: "blixtworks", version: "1.0.0" });
+/** Build a loose zod schema from the catalogue's example payload. */
+function schemaFromExample(example) {
+  const shape = {};
+  for (const [key, value] of Object.entries(example ?? {})) {
+    if (Array.isArray(value)) shape[key] = z.array(z.string()).optional();
+    else if (typeof value === "number") shape[key] = z.number().optional();
+    else if (typeof value === "boolean") shape[key] = z.boolean().optional();
+    else if (value && typeof value === "object") shape[key] = z.object({}).passthrough().optional();
+    else shape[key] = z.string().optional();
+  }
+  return shape;
+}
 
-const imageArg = z.string().describe("Image as an https URL or a data:image/...;base64 URI");
+const FALLBACK_TOOLS = [
+  { name: "categorize", price: "$0.02", group: "vision", description: "Zero-shot image categorization.", example: { image: "https://example.com/a.jpg" } },
+  { name: "ocr", price: "$0.03", group: "vision", description: "Extract printed text from an image.", example: { image: "https://example.com/a.jpg" } },
+  { name: "md", price: "$0.02", group: "web", description: "Webpage to clean Markdown.", example: { url: "https://example.com" } },
+];
+
+async function loadCatalog() {
+  try {
+    const res = await fetch(`${BASE_URL}/catalog.json`, { signal: AbortSignal.timeout(30000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (Array.isArray(data.tools) && data.tools.length) return data.tools;
+    throw new Error("empty catalogue");
+  } catch {
+    return FALLBACK_TOOLS;
+  }
+}
+
+const catalog = await loadCatalog();
+
+const server = new McpServer(
+  { name: "blixtworks", title: "Blixtworks — pay-per-call tools for agents", version: "1.1.0" },
+  {
+    instructions:
+      `Blixtworks provides ${catalog.length} tools for AI agents, billed per request in USDC on Base via x402 — ` +
+      "no account, no API key, and failed requests are never charged. Groups: vision (image categorization, captioning, OCR, embeddings), " +
+      "images (resize, crop, transform, palette, EXIF, QR), text (hashing, regex, diff, language detection, statistics), " +
+      "data formats (JSON/YAML/CSV/XML/Markdown, JWT, RSS, PDF), web (HTTP headers, TLS certificates, WHOIS, DNS, robots.txt, page metadata, email validation), " +
+      "convert/validate (units, currency, timezones, cron, IBAN, phone numbers, colours) and read-only blockchain lookups. " +
+      "Call blixtworks_catalog for the full list with prices.",
+  },
+);
+
+for (const tool of catalog) {
+  const toolName = String(tool.name).replace(/[^a-zA-Z0-9_]/g, "_");
+  server.registerTool(
+    toolName,
+    {
+      title: `${toolName} (${tool.price})`,
+      description: `${tool.description} Billed ${tool.price} in USDC on Base.`,
+      inputSchema: schemaFromExample(tool.example),
+    },
+    (args) => callTool(tool.name, args),
+  );
+}
 
 server.registerTool(
-  "categorize_image",
+  "blixtworks_catalog",
   {
-    title: "Categorize image ($0.02)",
+    title: "Catalogue and prices (free)",
     description:
-      "Zero-shot image categorization. Returns ranked labels with confidence scores. Supply your own candidate labels or use a sensible default set. Costs $0.02 in USDC on Base.",
+      "Free: list every Blixtworks tool with its price and description, check whether a payment wallet is configured, and get the live dashboard link.",
     inputSchema: {
-      image: imageArg,
-      labels: z.array(z.string()).min(2).max(50).optional().describe("Optional candidate labels (2-50)"),
+      group: z.string().optional().describe("Filter by group: vision, media, text, data, web, convert or chain"),
     },
   },
-  ({ image, labels }) => callTool("categorize", { image, labels }),
-);
-
-server.registerTool(
-  "caption_image",
-  {
-    title: "Caption image ($0.02)",
-    description: "Generate a one-sentence natural-language description of an image. Costs $0.02 in USDC on Base.",
-    inputSchema: { image: imageArg },
-  },
-  ({ image }) => callTool("caption", { image }),
-);
-
-server.registerTool(
-  "ocr_image",
-  {
-    title: "OCR image ($0.03)",
-    description: "Extract printed English text from an image, with a confidence score. Costs $0.03 in USDC on Base.",
-    inputSchema: { image: imageArg },
-  },
-  ({ image }) => callTool("ocr", { image }),
-);
-
-server.registerTool(
-  "embed_image",
-  {
-    title: "Embed image ($0.01)",
-    description:
-      "Compute a 512-dimensional CLIP embedding for an image, for similarity search or clustering. Costs $0.01 in USDC on Base.",
-    inputSchema: { image: imageArg },
-  },
-  ({ image }) => callTool("embed", { image }),
-);
-
-server.registerTool(
-  "webpage_to_markdown",
-  {
-    title: "Webpage to Markdown ($0.02)",
-    description:
-      "Fetch a webpage (or convert raw HTML) into clean, LLM-ready Markdown with the boilerplate stripped. Costs $0.02 in USDC on Base.",
-    inputSchema: {
-      url: z.string().url().optional().describe("Page URL to fetch"),
-      html: z.string().optional().describe("Raw HTML instead of a URL"),
-      mode: z.enum(["article", "full"]).optional().describe("article = readability extract (default), full = whole body"),
-    },
-  },
-  ({ url, html, mode }) => callTool("md", { url, html, mode }),
-);
-
-server.registerTool(
-  "pdf_to_text",
-  {
-    title: "PDF to text ($0.03)",
-    description: "Extract plain text, page count and metadata from a PDF. Costs $0.03 in USDC on Base.",
-    inputSchema: { pdf: z.string().describe("PDF as an https URL or data:application/pdf;base64 URI") },
-  },
-  ({ pdf }) => callTool("pdf", { pdf }),
-);
-
-server.registerTool(
-  "generate_qr",
-  {
-    title: "Generate QR code ($0.01)",
-    description: "Generate a QR code as an SVG string or PNG data URI. Costs $0.01 in USDC on Base.",
-    inputSchema: {
-      text: z.string().max(2000).describe("Content to encode"),
-      format: z.enum(["svg", "png"]).optional().describe("Output format (default svg)"),
-    },
-  },
-  ({ text, format }) => callTool("qr", { text, format }),
-);
-
-server.registerTool(
-  "read_exif",
-  {
-    title: "Read EXIF metadata ($0.01)",
-    description:
-      "Extract EXIF metadata from an image: camera make/model, timestamps, exposure settings and GPS coordinates when present. Costs $0.01 in USDC on Base.",
-    inputSchema: { image: imageArg },
-  },
-  ({ image }) => callTool("exif", { image }),
-);
-
-server.registerTool(
-  "dns_lookup",
-  {
-    title: "DNS lookup ($0.01)",
-    description: "Resolve DNS records for a domain (A, AAAA, MX, TXT, NS, CNAME, or all). Costs $0.01 in USDC on Base.",
-    inputSchema: {
-      domain: z.string().describe("Domain name, e.g. example.com"),
-      type: z.enum(["A", "AAAA", "MX", "TXT", "NS", "CNAME", "all"]).optional().describe("Record type (default all)"),
-    },
-  },
-  ({ domain, type }) => callTool("dns", { domain, type }),
-);
-
-server.registerTool(
-  "blixtworks_status",
-  {
-    title: "Service status (free)",
-    description:
-      "Free: list available Blixtworks tools with prices, check whether a payment wallet is configured, and see live earnings.",
-    inputSchema: {},
-  },
-  async () => {
+  async ({ group }) => {
     await getFetch();
-    let dash = {};
-    try {
-      dash = await (await fetch(`${BASE_URL}/dashboard.json`, { signal: AbortSignal.timeout(40000) })).json();
-    } catch { /* offline */ }
+    const tools = group ? catalog.filter((t) => t.group === group) : catalog;
     return {
       content: [
         {
@@ -212,10 +161,10 @@ server.registerTool(
           text: JSON.stringify(
             {
               service: BASE_URL,
+              toolCount: tools.length,
               paymentWallet: walletAddress ?? (PRIVATE_KEY ? `error: ${walletError}` : "not configured — set BLIXTWORKS_PRIVATE_KEY"),
-              tools: dash.tools ?? null,
-              lifetimeEarningsUsd: dash.incoming?.totalUsd ?? null,
               dashboard: `${BASE_URL}/dashboard`,
+              tools: tools.map((t) => ({ name: t.name, group: t.group, price: t.price, description: t.description })),
             },
             null,
             2,
