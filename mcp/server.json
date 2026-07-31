@@ -3,8 +3,14 @@
   "name": "com.blixtworks.www/tools",
   "title": "Blixtworks",
   "description": "Vision, web and data tools paid per call in USDC on Base via x402. No account, no API key.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "websiteUrl": "https://www.blixtworks.com",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://www.blixtworks.com/mcp"
+    }
+  ],
   "repository": {
     "url": "https://github.com/Eggis70/img-categorize",
     "source": "github"
