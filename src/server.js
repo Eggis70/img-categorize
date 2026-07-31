@@ -408,6 +408,16 @@ load(); setInterval(load, 60000);
 
 app.get("/dashboard", (_req, res) => res.type("html").send(DASHBOARD_HTML));
 
+// Remote MCP endpoint — zero-install discovery for any MCP client.
+const { mcpHandler } = await import("./mcp-remote.js");
+const mcpRoute = mcpHandler({
+  runDemo: async () => (await runTask("categorize", { image: DEMO_IMAGE })).results,
+  siteUrl: "https://www.blixtworks.com",
+});
+app.post("/mcp", mcpRoute);
+app.get("/mcp", mcpRoute);
+app.delete("/mcp", mcpRoute);
+
 // llms.txt — the B2A convention: tells any crawling agent what we sell and how
 // to buy it, in one fetch.
 app.get("/llms.txt", (req, res) => {
