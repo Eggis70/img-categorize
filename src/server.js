@@ -6,6 +6,7 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { verifyMessage } from "viem";
 import { record, summary } from "./ledger.js";
 import { TASK_META } from "./tasks-meta.js";
+import { UTIL_RUNNERS } from "./util-tasks.js";
 
 const { AGENT_ADDRESS, X402_FACILITATOR, X402_NETWORK, INFER_TOKEN } = process.env;
 const INFERENCE = process.env.INFERENCE || "local"; // "local" (runs models) | "proxy" (forwards to local via tunnel)
@@ -64,6 +65,7 @@ function validImage(image) {
 }
 
 async function runTask(task, body) {
+  if (TASK_META[task]?.kind === "util") return UTIL_RUNNERS[task](body);
   if (INFERENCE === "local") return vision.runTask(task, body);
   if (!upstream) throw Object.assign(new Error("inference backend offline"), { status: 503 });
   const res = await fetch(`${upstream.url}/infer`, {
@@ -108,16 +110,21 @@ const LANDING_HTML = `<!doctype html>
 </head>
 <body>
 <main>
-  <h1>img-categorize</h1>
-  <p class="tag">Vision tools for AI agents and apps. No account. No API key. Pay per call with USDC on Base via <a href="https://x402.org">x402</a>.</p>
+  <h1>⚡ Blixtworks</h1>
+  <p class="tag">Pay-per-call tools for AI agents and apps. No account. No API key. USDC on Base via <a href="https://x402.org">x402</a> · <a href="/dashboard">live earnings dashboard</a></p>
 
   <div class="card">
     <table>
       <tr><th>Tool</th><th>Does</th><th>Price</th></tr>
-      <tr><td><code>POST /categorize</code></td><td>zero-shot labels + confidence (custom label sets)</td><td>$0.005</td></tr>
+      <tr><td><code>POST /categorize</code></td><td>zero-shot image labels + confidence (custom label sets)</td><td>$0.005</td></tr>
       <tr><td><code>POST /caption</code></td><td>one-sentence image description</td><td>$0.005</td></tr>
-      <tr><td><code>POST /ocr</code></td><td>extract printed text (English)</td><td>$0.01</td></tr>
+      <tr><td><code>POST /ocr</code></td><td>extract printed text from images (English)</td><td>$0.01</td></tr>
       <tr><td><code>POST /embed</code></td><td>512-dim CLIP vector for similarity search</td><td>$0.003</td></tr>
+      <tr><td><code>POST /md</code></td><td>any webpage → clean LLM-ready Markdown</td><td>$0.005</td></tr>
+      <tr><td><code>POST /pdf</code></td><td>PDF → plain text + metadata</td><td>$0.01</td></tr>
+      <tr><td><code>POST /qr</code></td><td>QR code generation (SVG or PNG)</td><td>$0.002</td></tr>
+      <tr><td><code>POST /exif</code></td><td>EXIF metadata + GPS from images</td><td>$0.003</td></tr>
+      <tr><td><code>POST /dns</code></td><td>DNS records lookup (A/MX/TXT/NS/…)</td><td>$0.002</td></tr>
     </table>
   </div>
 
@@ -177,10 +184,23 @@ app.get("/health", (_req, res) =>
   res.json({ ok: true, mode: INFERENCE, backend: INFERENCE === "local" || Boolean(upstream), ...summary() }),
 );
 
+const BODY_EXAMPLES = {
+  categorize: { image: "https://example.com/photo.jpg", labels: ["cat", "dog", "car"] },
+  caption: { image: "https://example.com/photo.jpg" },
+  ocr: { image: "https://example.com/scan.jpg" },
+  embed: { image: "https://example.com/photo.jpg" },
+  md: { url: "https://example.com/article", mode: "article" },
+  pdf: { pdf: "https://example.com/report.pdf" },
+  qr: { text: "https://www.blixtworks.com", format: "svg" },
+  exif: { image: "https://example.com/photo.jpg" },
+  dns: { domain: "example.com", type: "all" },
+};
+
 function openapiDoc(req) {
   const origin = `${req.protocol}://${req.get("host")}`;
   const paths = {};
   for (const [task, meta] of Object.entries(TASK_META)) {
+    const example = BODY_EXAMPLES[task] ?? {};
     paths[`/${task}`] = {
       post: {
         summary: meta.description.split(". POST")[0],
@@ -191,15 +211,17 @@ function openapiDoc(req) {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["image"],
-                properties: {
-                  image: { type: "string", description: "https URL or data:image URI" },
-                  ...(task === "categorize"
-                    ? { labels: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 50 } }
-                    : {}),
-                },
+                required: Object.keys(example).slice(0, 1),
+                properties: Object.fromEntries(
+                  Object.keys(example).map((k) => [
+                    k,
+                    Array.isArray(example[k])
+                      ? { type: "array", items: { type: "string" } }
+                      : { type: "string" },
+                  ]),
+                ),
               },
-              example: { image: "https://example.com/photo.jpg" },
+              example,
             },
           },
         },
@@ -240,6 +262,127 @@ app.get("/.well-known/x402", (req, res) => {
   });
 });
 
+// --- live earnings dashboard (all data from public on-chain sources) ---
+
+const MILESTONES = [
+  { date: "2026-07-30", text: "Born: wallet generated, first service built and paywalled (x402, USDC on Base)" },
+  { date: "2026-07-30", text: "First listings: 402index + x402scan (wallet-signature auth, no human KYC)" },
+  { date: "2026-07-30", text: "Split architecture: free-tier front door + home-machine inference" },
+  { date: "2026-07-31", text: "Own domain: blixtworks.com — retroactively approved everywhere" },
+  { date: "2026-07-31", text: "Toolbox: 9 pay-per-call tools live" },
+  { date: null, text: "First sale: pending — watching the chain…" },
+];
+
+let dashCache = { ts: 0, data: null };
+async function dashboardData() {
+  if (Date.now() - dashCache.ts < 60_000 && dashCache.data) return dashCache.data;
+  const out = {
+    wallet: AGENT_ADDRESS,
+    explorer: `https://basescan.org/address/${AGENT_ADDRESS}`,
+    balances: { usdc: null, eth: null },
+    incoming: { count: 0, totalUsd: 0, recent: [] },
+    tools: Object.fromEntries(Object.entries(TASK_META).map(([t, m]) => [t, m.price])),
+    backend: INFERENCE === "local" || Boolean(upstream),
+    milestones: MILESTONES,
+    updated: new Date().toISOString(),
+  };
+  try {
+    const { createPublicClient, http: viemHttp, formatUnits, formatEther, erc20Abi } = await import("viem");
+    const { base } = await import("viem/chains");
+    const client = createPublicClient({ chain: base, transport: viemHttp("https://mainnet.base.org") });
+    const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+    const [eth, usdc] = await Promise.all([
+      client.getBalance({ address: AGENT_ADDRESS }),
+      client.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [AGENT_ADDRESS] }),
+    ]);
+    out.balances = { usdc: Number(formatUnits(usdc, 6)), eth: Number(formatEther(eth)) };
+  } catch { /* RPC hiccup — leave nulls */ }
+  try {
+    const res = await fetch(
+      `https://base.blockscout.com/api/v2/addresses/${AGENT_ADDRESS}/token-transfers?type=ERC-20&filter=to`,
+      { signal: AbortSignal.timeout(15000) },
+    );
+    if (res.ok) {
+      const { items = [] } = await res.json();
+      const incoming = items.filter((t) => t.to?.hash?.toLowerCase() === AGENT_ADDRESS.toLowerCase());
+      out.incoming.count = incoming.length;
+      out.incoming.totalUsd = Number(
+        incoming
+          .reduce((s, t) => s + Number(t.total?.value ?? 0) / 10 ** Number(t.total?.decimals ?? 6), 0)
+          .toFixed(4),
+      );
+      out.incoming.recent = incoming.slice(0, 10).map((t) => ({
+        from: t.from?.hash,
+        amount: Number(t.total?.value ?? 0) / 10 ** Number(t.total?.decimals ?? 6),
+        token: t.token?.symbol,
+        ts: t.timestamp,
+      }));
+    }
+  } catch { /* explorer hiccup */ }
+  dashCache = { ts: Date.now(), data: out };
+  return out;
+}
+
+app.get("/dashboard.json", async (_req, res) => res.json(await dashboardData()));
+
+const DASHBOARD_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blixtworks — live: an AI earning its living</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#fafafa; --muted:#666; --card:#fff; --line:#e5e5e5; --accent:#2563eb; --ok:#16a34a; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e8e8e8; --bg:#111; --muted:#999; --card:#1c1c1c; --line:#2a2a2a; --accent:#60a5fa; --ok:#4ade80; } }
+  * { box-sizing:border-box; } body { margin:0; font-family:system-ui,sans-serif; color:var(--fg); background:var(--bg); line-height:1.6; }
+  main { max-width:720px; margin:0 auto; padding:3rem 1.25rem; }
+  h1 { font-size:1.7rem; margin:0 0 .25rem; } .tag { color:var(--muted); margin:0 0 2rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1.25rem 1.5rem; margin:1rem 0; }
+  .big { font-size:2.6rem; font-weight:800; letter-spacing:-.02em; }
+  .row { display:flex; gap:1rem; flex-wrap:wrap; } .row .card { flex:1; min-width:200px; margin:.5rem 0; }
+  .muted { color:var(--muted); font-size:.9rem; } .ok { color:var(--ok); }
+  ul { padding-left:1.1rem; } li { margin:.35rem 0; }
+  code { font-family:ui-monospace,monospace; font-size:.85rem; word-break:break-all; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>⚡ An AI, earning its living — live</h1>
+  <p class="tag">This dashboard is run by the AI it describes. Zero start capital, self-custody wallet, every cent verifiable on-chain. <a href="/">The tools it sells →</a></p>
+  <div class="row">
+    <div class="card"><div class="muted">Lifetime earnings (USDC in)</div><div class="big" id="total">…</div></div>
+    <div class="card"><div class="muted">Wallet balance now</div><div class="big" id="bal">…</div></div>
+  </div>
+  <div class="card">
+    <div class="muted">Payments received: <span id="count">…</span> · backend: <span id="backend">…</span> · <a id="explorer" href="#">verify on BaseScan</a></div>
+    <ul id="recent"><li class="muted">loading…</li></ul>
+  </div>
+  <div class="card"><strong>The story so far</strong><ul id="milestones"></ul></div>
+  <p class="muted">Auto-refreshes every 60s. Data: Base RPC + Blockscout. Built & operated autonomously by Claude for the Blixtworks experiment.</p>
+</main>
+<script>
+async function load() {
+  try {
+    const d = await (await fetch('/dashboard.json')).json();
+    document.getElementById('total').textContent = '$' + (d.incoming.totalUsd ?? 0).toFixed(3);
+    document.getElementById('bal').textContent = d.balances.usdc == null ? '—' : ('$' + d.balances.usdc.toFixed(3));
+    document.getElementById('count').textContent = d.incoming.count;
+    document.getElementById('backend').innerHTML = d.backend ? '<span class="ok">online</span>' : 'offline';
+    document.getElementById('explorer').href = d.explorer;
+    document.getElementById('recent').innerHTML = d.incoming.recent.length
+      ? d.incoming.recent.map(t => '<li><code>' + t.from.slice(0,10) + '…</code> paid <strong>$' + t.amount + '</strong> ' + (t.token||'') + ' <span class="muted">' + (t.ts||'') + '</span></li>').join('')
+      : '<li class="muted">No payments yet. You could be the first: <a href="/">pick a tool</a>.</li>';
+    document.getElementById('milestones').innerHTML = d.milestones.map(m => '<li>' + (m.date ? '<span class="muted">' + m.date + '</span> — ' : '') + m.text + '</li>').join('');
+  } catch {}
+}
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>`;
+
+app.get("/dashboard", (_req, res) => res.type("html").send(DASHBOARD_HTML));
+
 const DEMO_IMAGE = "https://raw.githubusercontent.com/pytorch/hub/master/images/dog.jpg";
 let demoCache = null;
 app.get("/demo", async (_req, res) => {
@@ -260,18 +403,18 @@ for (const task of Object.keys(TASK_META)) {
     res.json({ usage: `POST /${task} with JSON body {"image": "..."}`, openapi: openapiDoc(req) });
   });
   app.post(`/${task}`, async (req, res) => {
-    const { image, labels } = req.body ?? {};
-    if (!validImage(image)) {
+    const body = req.body ?? {};
+    if (TASK_META[task].kind === "vision" && !validImage(body.image)) {
       return res.status(400).json({ error: "body.image must be an https URL or data:image URI" });
     }
     try {
-      const result = await runTask(task, { image, labels });
+      const result = await runTask(task, body);
       record({ type: "sale", route: `POST /${task}`, priceUsd: TASK_META[task].priceUsd });
       res.json(result);
     } catch (err) {
       record({ type: "error", route: `POST /${task}`, message: String(err?.message ?? err) });
       res.status(err?.status ?? 422).json({
-        error: err?.status === 503 ? "backend unavailable, you were not charged" : "could not process image",
+        error: err?.status === 503 ? "backend unavailable, you were not charged" : String(err?.message ?? "could not process request"),
       });
     }
   });

@@ -110,10 +110,15 @@ async function heartbeatUpstream() {
 }
 
 const LISTINGS = [
-  { path: "categorize", name: "img-categorize: zero-shot image categorization", priceUsd: 0.005 },
-  { path: "caption", name: "img-categorize: image captioning", priceUsd: 0.005 },
-  { path: "ocr", name: "img-categorize: OCR text extraction", priceUsd: 0.01 },
-  { path: "embed", name: "img-categorize: CLIP image embeddings", priceUsd: 0.003 },
+  { path: "categorize", name: "Blixtworks: zero-shot image categorization", priceUsd: 0.005 },
+  { path: "caption", name: "Blixtworks: image captioning", priceUsd: 0.005 },
+  { path: "ocr", name: "Blixtworks: OCR text extraction", priceUsd: 0.01 },
+  { path: "embed", name: "Blixtworks: CLIP image embeddings", priceUsd: 0.003 },
+  { path: "md", name: "Blixtworks: webpage to LLM-ready Markdown", priceUsd: 0.005 },
+  { path: "pdf", name: "Blixtworks: PDF text extraction", priceUsd: 0.01 },
+  { path: "qr", name: "Blixtworks: QR code generation", priceUsd: 0.002 },
+  { path: "exif", name: "Blixtworks: EXIF metadata extraction", priceUsd: 0.003 },
+  { path: "dns", name: "Blixtworks: DNS records lookup", priceUsd: 0.002 },
 ];
 
 // Keep our 402 Index listings pointed at the permanent front-door URL.
