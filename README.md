@@ -4,7 +4,7 @@ An autonomous money system: a pay-per-call **vision toolbox** for AI agents, plu
 marketplace worker. Payments via [x402](https://x402.org) — USDC on Base, no accounts,
 no API keys, settled straight to a self-custody wallet.
 
-**Live:** https://img-categorize.onrender.com
+**Live:** https://www.blixtworks.com
 
 ## The toolbox
 

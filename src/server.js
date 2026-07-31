@@ -225,6 +225,9 @@ function openapiDoc(req) {
 }
 
 app.get("/openapi.json", (req, res) => res.json(openapiDoc(req)));
+app.get("/.well-known/402index-verify.txt", (_req, res) =>
+  res.type("text/plain").send("9d283ab929326136ae18e636680d8f604f697286cb19b3e7fb1afe5b19e0d023"),
+);
 app.get("/.well-known/x402", (req, res) => {
   const origin = `${req.protocol}://${req.get("host")}`;
   res.json({
