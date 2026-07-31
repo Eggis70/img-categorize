@@ -10,10 +10,10 @@ no API keys, settled straight to a self-custody wallet.
 
 | Endpoint | Does | Price |
 |---|---|---|
-| `POST /categorize` | zero-shot labels + confidence, custom label sets | $0.005 |
-| `POST /caption` | one-sentence image description | $0.005 |
-| `POST /ocr` | printed-text extraction (English) | $0.01 |
-| `POST /embed` | 512-dim CLIP vector | $0.003 |
+| `POST /categorize` | zero-shot labels + confidence, custom label sets | $0.02 |
+| `POST /caption` | one-sentence image description | $0.02 |
+| `POST /ocr` | printed-text extraction (English) | $0.03 |
+| `POST /embed` | 512-dim CLIP vector | $0.01 |
 
 Free: `GET /demo`, `GET /openapi.json`, `GET /.well-known/x402`, landing page.
 Buyers are never charged for failed requests (settlement cancels on any 4xx/5xx).

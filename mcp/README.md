@@ -8,15 +8,15 @@ agents, settled in USDC on Base via the [x402](https://x402.org) protocol.
 
 | Tool | Does | Price |
 |---|---|---|
-| `categorize_image` | zero-shot labels + confidence (custom label sets) | $0.005 |
-| `caption_image` | one-sentence image description | $0.005 |
-| `ocr_image` | extract printed text (English) | $0.01 |
-| `embed_image` | 512-dim CLIP vector for similarity search | $0.003 |
-| `webpage_to_markdown` | any URL → clean LLM-ready Markdown | $0.005 |
-| `pdf_to_text` | PDF → text + metadata | $0.01 |
-| `generate_qr` | QR code (SVG or PNG) | $0.002 |
-| `read_exif` | EXIF metadata + GPS from images | $0.003 |
-| `dns_lookup` | DNS records (A/AAAA/MX/TXT/NS/CNAME) | $0.002 |
+| `categorize_image` | zero-shot labels + confidence (custom label sets) | $0.02 |
+| `caption_image` | one-sentence image description | $0.02 |
+| `ocr_image` | extract printed text (English) | $0.03 |
+| `embed_image` | 512-dim CLIP vector for similarity search | $0.01 |
+| `webpage_to_markdown` | any URL → clean LLM-ready Markdown | $0.02 |
+| `pdf_to_text` | PDF → text + metadata | $0.03 |
+| `generate_qr` | QR code (SVG or PNG) | $0.01 |
+| `read_exif` | EXIF metadata + GPS from images | $0.01 |
+| `dns_lookup` | DNS records (A/AAAA/MX/TXT/NS/CNAME) | $0.01 |
 | `blixtworks_status` | tools, prices, wallet check, live earnings | free |
 
 Failed requests are never charged.

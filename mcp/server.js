@@ -40,7 +40,7 @@ async function getFetch() {
 }
 
 const SETUP_HINT =
-  "This tool costs a fraction of a cent, paid automatically in USDC on Base via the x402 protocol. " +
+  "This tool costs $0.01–$0.03, paid automatically in USDC on Base via the x402 protocol. " +
   "To enable it, set BLIXTWORKS_PRIVATE_KEY in the MCP server config to a wallet key holding a little USDC on Base. " +
   "No account or signup is needed — payment happens per request.";
 
@@ -67,7 +67,7 @@ async function callTool(path, body) {
         if (header) reason = JSON.parse(Buffer.from(header, "base64").toString()).error ?? reason;
       } catch { /* keep default */ }
       const friendly = reason.includes("insufficient_balance")
-        ? `Payment failed: wallet ${walletAddress} has too little USDC on Base. Top it up with a dollar or two — each call costs well under a cent.`
+        ? `Payment failed: wallet ${walletAddress} has too little USDC on Base. Top it up with a dollar or two — calls cost $0.01–$0.03 each.`
         : `Payment failed: ${reason}`;
       return { content: [{ type: "text", text: friendly }], isError: true };
     }
@@ -87,9 +87,9 @@ const imageArg = z.string().describe("Image as an https URL or a data:image/...;
 server.registerTool(
   "categorize_image",
   {
-    title: "Categorize image ($0.005)",
+    title: "Categorize image ($0.02)",
     description:
-      "Zero-shot image categorization. Returns ranked labels with confidence scores. Supply your own candidate labels or use a sensible default set. Costs $0.005 in USDC on Base.",
+      "Zero-shot image categorization. Returns ranked labels with confidence scores. Supply your own candidate labels or use a sensible default set. Costs $0.02 in USDC on Base.",
     inputSchema: {
       image: imageArg,
       labels: z.array(z.string()).min(2).max(50).optional().describe("Optional candidate labels (2-50)"),
@@ -101,8 +101,8 @@ server.registerTool(
 server.registerTool(
   "caption_image",
   {
-    title: "Caption image ($0.005)",
-    description: "Generate a one-sentence natural-language description of an image. Costs $0.005 in USDC on Base.",
+    title: "Caption image ($0.02)",
+    description: "Generate a one-sentence natural-language description of an image. Costs $0.02 in USDC on Base.",
     inputSchema: { image: imageArg },
   },
   ({ image }) => callTool("caption", { image }),
@@ -111,8 +111,8 @@ server.registerTool(
 server.registerTool(
   "ocr_image",
   {
-    title: "OCR image ($0.01)",
-    description: "Extract printed English text from an image, with a confidence score. Costs $0.01 in USDC on Base.",
+    title: "OCR image ($0.03)",
+    description: "Extract printed English text from an image, with a confidence score. Costs $0.03 in USDC on Base.",
     inputSchema: { image: imageArg },
   },
   ({ image }) => callTool("ocr", { image }),
@@ -121,9 +121,9 @@ server.registerTool(
 server.registerTool(
   "embed_image",
   {
-    title: "Embed image ($0.003)",
+    title: "Embed image ($0.01)",
     description:
-      "Compute a 512-dimensional CLIP embedding for an image, for similarity search or clustering. Costs $0.003 in USDC on Base.",
+      "Compute a 512-dimensional CLIP embedding for an image, for similarity search or clustering. Costs $0.01 in USDC on Base.",
     inputSchema: { image: imageArg },
   },
   ({ image }) => callTool("embed", { image }),
@@ -132,9 +132,9 @@ server.registerTool(
 server.registerTool(
   "webpage_to_markdown",
   {
-    title: "Webpage to Markdown ($0.005)",
+    title: "Webpage to Markdown ($0.02)",
     description:
-      "Fetch a webpage (or convert raw HTML) into clean, LLM-ready Markdown with the boilerplate stripped. Costs $0.005 in USDC on Base.",
+      "Fetch a webpage (or convert raw HTML) into clean, LLM-ready Markdown with the boilerplate stripped. Costs $0.02 in USDC on Base.",
     inputSchema: {
       url: z.string().url().optional().describe("Page URL to fetch"),
       html: z.string().optional().describe("Raw HTML instead of a URL"),
@@ -147,8 +147,8 @@ server.registerTool(
 server.registerTool(
   "pdf_to_text",
   {
-    title: "PDF to text ($0.01)",
-    description: "Extract plain text, page count and metadata from a PDF. Costs $0.01 in USDC on Base.",
+    title: "PDF to text ($0.03)",
+    description: "Extract plain text, page count and metadata from a PDF. Costs $0.03 in USDC on Base.",
     inputSchema: { pdf: z.string().describe("PDF as an https URL or data:application/pdf;base64 URI") },
   },
   ({ pdf }) => callTool("pdf", { pdf }),
@@ -157,8 +157,8 @@ server.registerTool(
 server.registerTool(
   "generate_qr",
   {
-    title: "Generate QR code ($0.002)",
-    description: "Generate a QR code as an SVG string or PNG data URI. Costs $0.002 in USDC on Base.",
+    title: "Generate QR code ($0.01)",
+    description: "Generate a QR code as an SVG string or PNG data URI. Costs $0.01 in USDC on Base.",
     inputSchema: {
       text: z.string().max(2000).describe("Content to encode"),
       format: z.enum(["svg", "png"]).optional().describe("Output format (default svg)"),
@@ -170,9 +170,9 @@ server.registerTool(
 server.registerTool(
   "read_exif",
   {
-    title: "Read EXIF metadata ($0.003)",
+    title: "Read EXIF metadata ($0.01)",
     description:
-      "Extract EXIF metadata from an image: camera make/model, timestamps, exposure settings and GPS coordinates when present. Costs $0.003 in USDC on Base.",
+      "Extract EXIF metadata from an image: camera make/model, timestamps, exposure settings and GPS coordinates when present. Costs $0.01 in USDC on Base.",
     inputSchema: { image: imageArg },
   },
   ({ image }) => callTool("exif", { image }),
@@ -181,8 +181,8 @@ server.registerTool(
 server.registerTool(
   "dns_lookup",
   {
-    title: "DNS lookup ($0.002)",
-    description: "Resolve DNS records for a domain (A, AAAA, MX, TXT, NS, CNAME, or all). Costs $0.002 in USDC on Base.",
+    title: "DNS lookup ($0.01)",
+    description: "Resolve DNS records for a domain (A, AAAA, MX, TXT, NS, CNAME, or all). Costs $0.01 in USDC on Base.",
     inputSchema: {
       domain: z.string().describe("Domain name, e.g. example.com"),
       type: z.enum(["A", "AAAA", "MX", "TXT", "NS", "CNAME", "all"]).optional().describe("Record type (default all)"),

@@ -86,7 +86,7 @@ const LANDING_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>img-categorize — pay-per-call vision tools for agents</title>
+<title>Blixtworks — pay-per-call tools for AI agents</title>
 <style>
   :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#fafafa; --muted:#666; --card:#fff; --line:#e5e5e5; --accent:#2563eb; }
   @media (prefers-color-scheme: dark) { :root { --fg:#e8e8e8; --bg:#111; --muted:#999; --card:#1c1c1c; --line:#2a2a2a; --accent:#60a5fa; } }
@@ -116,15 +116,15 @@ const LANDING_HTML = `<!doctype html>
   <div class="card">
     <table>
       <tr><th>Tool</th><th>Does</th><th>Price</th></tr>
-      <tr><td><code>POST /categorize</code></td><td>zero-shot image labels + confidence (custom label sets)</td><td>$0.005</td></tr>
-      <tr><td><code>POST /caption</code></td><td>one-sentence image description</td><td>$0.005</td></tr>
-      <tr><td><code>POST /ocr</code></td><td>extract printed text from images (English)</td><td>$0.01</td></tr>
-      <tr><td><code>POST /embed</code></td><td>512-dim CLIP vector for similarity search</td><td>$0.003</td></tr>
-      <tr><td><code>POST /md</code></td><td>any webpage → clean LLM-ready Markdown</td><td>$0.005</td></tr>
-      <tr><td><code>POST /pdf</code></td><td>PDF → plain text + metadata</td><td>$0.01</td></tr>
-      <tr><td><code>POST /qr</code></td><td>QR code generation (SVG or PNG)</td><td>$0.002</td></tr>
-      <tr><td><code>POST /exif</code></td><td>EXIF metadata + GPS from images</td><td>$0.003</td></tr>
-      <tr><td><code>POST /dns</code></td><td>DNS records lookup (A/MX/TXT/NS/…)</td><td>$0.002</td></tr>
+      <tr><td><code>POST /categorize</code></td><td>zero-shot image labels + confidence (custom label sets)</td><td>$0.02</td></tr>
+      <tr><td><code>POST /caption</code></td><td>one-sentence image description</td><td>$0.02</td></tr>
+      <tr><td><code>POST /ocr</code></td><td>extract printed text from images (English)</td><td>$0.03</td></tr>
+      <tr><td><code>POST /embed</code></td><td>512-dim CLIP vector for similarity search</td><td>$0.015</td></tr>
+      <tr><td><code>POST /md</code></td><td>any webpage → clean LLM-ready Markdown</td><td>$0.02</td></tr>
+      <tr><td><code>POST /pdf</code></td><td>PDF → plain text + metadata</td><td>$0.03</td></tr>
+      <tr><td><code>POST /qr</code></td><td>QR code generation (SVG or PNG)</td><td>$0.01</td></tr>
+      <tr><td><code>POST /exif</code></td><td>EXIF metadata + GPS from images</td><td>$0.01</td></tr>
+      <tr><td><code>POST /dns</code></td><td>DNS records lookup (A/MX/TXT/NS/…)</td><td>$0.01</td></tr>
     </table>
   </div>
 
@@ -149,10 +149,10 @@ const LANDING_HTML = `<!doctype html>
     <strong>Or plug it straight into your agent (MCP)</strong>
     <p>All nine tools, payment handled for you:</p>
 <pre>claude mcp add blixtworks --env BLIXTWORKS_PRIVATE_KEY=0xyourkey -- npx -y blixtworks-mcp</pre>
-    <p>Any MCP client works — <a href="https://www.npmjs.com/package/blixtworks-mcp">npm: blixtworks-mcp</a>. Point the key at a low-balance wallet holding a little USDC on Base; each call costs well under a cent.</p>
+    <p>Any MCP client works — <a href="https://www.npmjs.com/package/blixtworks-mcp">npm: blixtworks-mcp</a>. Point the key at a low-balance wallet holding a little USDC on Base; calls cost $0.01–$0.03.</p>
   </div>
 
-  <p class="foot">Free local models under the hood · buyers are never charged for failed requests · listed on x402scan &amp; 402index</p>
+  <p class="foot">Free local models under the hood · buyers are never charged for failed requests · listed on x402scan, 402index &amp; Smithery</p>
 </main>
 <script>
 async function runDemo() {
@@ -427,7 +427,7 @@ app.get("/llms.txt", (req, res) => {
     "",
     "> Pay-per-call tools for AI agents. No account, no signup, no API key.",
     "> Payment is per request in USDC on Base via the x402 protocol (HTTP 402).",
-    "> Costs $0.002–$0.01 per call. Failed requests are never charged.",
+    "> Costs $0.01–$0.03 per call. Failed requests are never charged.",
     "",
     "## How to use",
     "",
