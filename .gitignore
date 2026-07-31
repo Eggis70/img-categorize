@@ -6,3 +6,4 @@ data/
 *.env
 *Zone.Identifier
 *.save
+.keys/

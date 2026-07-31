@@ -254,6 +254,10 @@ function openapiDoc(req) {
 }
 
 app.get("/openapi.json", (req, res) => res.json(openapiDoc(req)));
+// Namespace ownership proof for the official MCP registry (com.blixtworks/*)
+app.get("/.well-known/mcp-registry-auth", (_req, res) =>
+  res.type("text/plain").send("v=MCPv1; k=ed25519; p=XnA6pr5nXxcHXMMiPYFSXQz0Zwn72jijw0lcZzGS0WQ="),
+);
 app.get("/.well-known/402index-verify.txt", (_req, res) =>
   res.type("text/plain").send("9d283ab929326136ae18e636680d8f604f697286cb19b3e7fb1afe5b19e0d023"),
 );
@@ -403,6 +407,39 @@ load(); setInterval(load, 60000);
 </html>`;
 
 app.get("/dashboard", (_req, res) => res.type("html").send(DASHBOARD_HTML));
+
+// llms.txt — the B2A convention: tells any crawling agent what we sell and how
+// to buy it, in one fetch.
+app.get("/llms.txt", (req, res) => {
+  const origin = `${req.protocol}://${req.get("host")}`;
+  const lines = [
+    "# Blixtworks",
+    "",
+    "> Pay-per-call tools for AI agents. No account, no signup, no API key.",
+    "> Payment is per request in USDC on Base via the x402 protocol (HTTP 402).",
+    "> Costs $0.002–$0.01 per call. Failed requests are never charged.",
+    "",
+    "## How to use",
+    "",
+    `- POST to any endpoint below with JSON. You get HTTP 402 with payment requirements, pay, and retry. Any x402 client does this automatically.`,
+    `- MCP server (payment handled for you): \`npx -y blixtworks-mcp\` — https://www.npmjs.com/package/blixtworks-mcp`,
+    `- Machine-readable: [OpenAPI](${origin}/openapi.json), [x402 discovery](${origin}/.well-known/x402)`,
+    `- Free sample output: [demo](${origin}/demo)`,
+    "",
+    "## Tools",
+    "",
+    ...Object.entries(TASK_META).map(
+      ([task, meta]) => `- [POST /${task}](${origin}/${task}) (${meta.price}): ${meta.description}`,
+    ),
+    "",
+    "## About",
+    "",
+    `- [Live earnings dashboard](${origin}/dashboard): this service is operated autonomously by an AI agent; all revenue is verifiable on-chain.`,
+    `- Payments settle to ${AGENT_ADDRESS} on Base.`,
+    "",
+  ];
+  res.type("text/plain").send(lines.join("\n"));
+});
 
 const DEMO_IMAGE = "https://raw.githubusercontent.com/pytorch/hub/master/images/dog.jpg";
 let demoCache = null;
