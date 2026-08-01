@@ -448,8 +448,10 @@ app.get("/dashboard", (_req, res) => res.type("html").send(DASHBOARD_HTML));
 // Remote MCP endpoint — zero-install discovery for any MCP client.
 const { mcpHandler } = await import("./mcp-remote.js");
 const mcpRoute = mcpHandler({
+  runTask,
   runDemo: async () => (await runTask("categorize", { image: DEMO_IMAGE })).results,
   siteUrl: "https://www.blixtworks.com",
+  payTo: AGENT_ADDRESS,
 });
 app.post("/mcp", mcpRoute);
 app.get("/mcp", mcpRoute);
