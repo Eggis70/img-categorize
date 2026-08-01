@@ -111,10 +111,17 @@ async function heartbeatUpstream() {
 
 // Listings derive from the catalogue so new tools are registered automatically.
 const { TASK_META } = await import("./catalog.js");
+const CATEGORY = {
+  vision: "ai", media: "images", text: "tools",
+  data: "data", web: "tools", convert: "tools", chain: "blockchain",
+};
 const LISTINGS = Object.entries(TASK_META).map(([path, meta]) => ({
   path,
   name: `Blixtworks: ${meta.description.split(". POST")[0].split(". ")[0]}`,
   priceUsd: meta.priceUsd,
+  description: `${meta.description} Pay $${meta.priceUsd} per call in USDC on Base via x402 — no signup or API key.`.slice(0, 480),
+  category: CATEGORY[meta.group] ?? "tools",
+  inputSchema: meta.example ?? {},
 }));
 
 // Keep our 402 Index listings pointed at the permanent front-door URL.
@@ -122,7 +129,7 @@ async function keepListingFresh() {
   const url = SERVICE_URL || currentTunnelUrl();
   if (!url) return { source: "402index", skipped: "no url" };
   const state = loadState();
-  const done = state.registered402 ?? {};
+  const done = state.registered402v2 ?? {};
   const results = [];
   for (const l of LISTINGS) {
     if (done[l.path] === url) continue;
@@ -130,7 +137,16 @@ async function keepListingFresh() {
       const res = await fetch("https://402index.io/api/v1/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: `${url}/${l.path}`, name: l.name, protocol: "x402", priceUsd: l.priceUsd }),
+        body: JSON.stringify({
+          url: `${url}/${l.path}`,
+          name: l.name,
+          protocol: "x402",
+          description: l.description,
+          price_usd: l.priceUsd,
+          category: l.category,
+          provider: "Blixtworks",
+          input_schema: l.inputSchema,
+        }),
         signal: AbortSignal.timeout(25000),
       });
       const body = await res.json().catch(() => ({}));
@@ -144,7 +160,7 @@ async function keepListingFresh() {
       results.push(`${l.path}:${String(err?.message ?? err).slice(0, 40)}`);
     }
   }
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ ...state, registered402: done }));
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ ...state, registered402v2: done }));
   return { source: "402index", results: results.length ? results : ["all current"] };
 }
 
