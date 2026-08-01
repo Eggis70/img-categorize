@@ -26,6 +26,9 @@ function payInstructions({ tool, priceUsd, payTo, siteUrl }) {
     "and you can pass payerAddress instead of paymentTx to spend it. Credit is held in memory,",
     "expires after an hour and does not survive a server restart, so pay roughly what you plan to use.",
     "",
+    `Want to try before paying? Every non-vision tool serves 5 free calls per caller per day over plain HTTP:`,
+    `  curl -X POST ${siteUrl}/${typeof tool === "string" && tool !== "Each tool" ? tool : "hash"} -H 'content-type: application/json' -d '{}'`,
+    "",
     `Prefer automatic payment? The local server handles all of this for you: ${INSTALL_CMD}`,
     `Catalogue and prices: ${siteUrl}/catalog.json`,
   ].join("\n");
@@ -65,7 +68,7 @@ export function createRemoteMcp({ runTask, runDemo, siteUrl, payTo }) {
         "web (HTTP headers, TLS certificates, WHOIS, DNS, robots.txt, page metadata, email validation), " +
         "convert/validate (units, currency, timezones, cron, IBAN, phone numbers, colours) and read-only blockchain lookups. " +
         "Paid tools run when you pass paymentTx — a hash of a USDC payment you made from your own wallet. Call how_to_pay for the exact steps. " +
-        "list_tools and try_sample are free.",
+        "list_tools and try_sample are free, and every non-vision tool also serves 5 free calls per caller per day over plain HTTP at the same URLs — see how_to_pay.",
     },
   );
 

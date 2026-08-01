@@ -6,6 +6,7 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { verifyMessage } from "viem";
 import { record, summary } from "./ledger.js";
 import { TASK_META, UTIL_RUNNERS, toolsByGroup, GROUPS } from "./catalog.js";
+import { claimFreeCall, releaseFreeCall, quotaStatus, DAILY_LIMIT } from "./free-trial.js";
 
 const { AGENT_ADDRESS, X402_FACILITATOR, X402_NETWORK, INFER_TOKEN } = process.env;
 const INFERENCE = process.env.INFERENCE || "local"; // "local" (runs models) | "proxy" (forwards to local via tunnel)
@@ -46,6 +47,32 @@ for (const [task, meta] of Object.entries(TASK_META)) {
   paidRoutes[`POST /${task}`] = route;
   paidRoutes[`GET /${task}`] = route; // directory probes GET; paid GET returns usage docs
 }
+// Free trial: a few calls a day on zero-marginal-cost tools, so buyers can see
+// real output before paying. Runs ahead of the paywall; falls through to it
+// once the allowance is spent.
+app.post(/^\/([a-z0-9_]+)$/i, async (req, res, next) => {
+  const task = req.params[0];
+  const meta = TASK_META[task];
+  if (!meta || meta.kind !== "util") return next(); // vision tools cost us GPU time
+  if (!claimFreeCall(req)) return next();
+  const quota = quotaStatus(req);
+  try {
+    const result = await runTask(task, req.body ?? {});
+    record({ type: "free_trial", route: `POST /${task}` });
+    res.json({
+      ...result,
+      freeTrial: {
+        remainingToday: quota.remaining,
+        resetsAt: quota.resetsAt,
+        note: `Free trial call (${quota.used}/${DAILY_LIMIT} used today). This tool costs ${meta.price} once your allowance runs out — no signup, pay per call in USDC on Base.`,
+      },
+    });
+  } catch (err) {
+    releaseFreeCall(req); // a failed call should not burn the allowance
+    res.status(err?.status ?? 422).json({ error: String(err?.message ?? "could not process request") });
+  }
+});
+
 app.use(paymentMiddleware(paidRoutes, resourceServer));
 
 const BLOCKED_HOSTS = /^(localhost|127\.|0\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|\[?::1)/i;
@@ -115,7 +142,14 @@ const landingHtml = (TOOL_TABLE) => `<!doctype html>
   ${TOOL_TABLE}
 
   <div class="card">
-    <strong>Try it free</strong>
+    <strong>5 free calls a day — no signup, no wallet</strong>
+    <p>Every tool except the four vision ones runs free 5 times a day per caller. Just POST and see real output; pay only when you need more.</p>
+<pre>curl -X POST https://www.blixtworks.com/hash \\
+  -H 'content-type: application/json' -d '{"text":"hello"}'</pre>
+  </div>
+
+  <div class="card">
+    <strong>Or try the vision model right here</strong>
     <p>Runs the real model on a sample image.</p>
     <button id="demo-btn" onclick="runDemo()">Run demo</button>
     <div id="demo-out"></div>
@@ -187,9 +221,21 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/health", (_req, res) =>
-  res.json({ ok: true, mode: INFERENCE, backend: INFERENCE === "local" || Boolean(upstream), ...summary() }),
-);
+app.get("/health", (req, res) => {
+  const backend = INFERENCE === "local" || Boolean(upstream);
+  const total = Object.keys(TASK_META).length;
+  const visionCount = Object.values(TASK_META).filter((m) => m.kind !== "util").length;
+  res.json({
+    ok: true,
+    mode: INFERENCE,
+    backend,
+    toolsAvailable: backend ? total : total - visionCount,
+    toolsTotal: total,
+    degraded: backend ? null : "vision tools (categorize, caption, ocr, embed) are offline; every other tool is unaffected",
+    freeTrial: quotaStatus(req),
+    ...summary(),
+  });
+});
 
 const BODY_EXAMPLES = {
   categorize: { image: "https://example.com/photo.jpg", labels: ["cat", "dog", "car"] },
@@ -261,6 +307,7 @@ app.get("/catalog.json", (req, res) => {
     service: "Blixtworks",
     origin,
     payment: { protocol: "x402", asset: "USDC", network: X402_NETWORK, payTo: AGENT_ADDRESS },
+    freeTrial: { ...quotaStatus(req), appliesTo: "all tools except the four vision tools" },
     tools: Object.entries(TASK_META).map(([name, meta]) => ({
       name,
       group: meta.group,
@@ -270,6 +317,8 @@ app.get("/catalog.json", (req, res) => {
       description: meta.description,
       example: meta.example ?? {},
       output: meta.output ?? {},
+      freeTrialEligible: meta.kind === "util",
+      available: meta.kind === "util" || INFERENCE === "local" || Boolean(upstream),
     })),
   });
 });
@@ -466,7 +515,8 @@ app.get("/llms.txt", (req, res) => {
     "",
     "> Pay-per-call tools for AI agents. No account, no signup, no API key.",
     "> Payment is per request in USDC on Base via the x402 protocol (HTTP 402).",
-    "> Costs $0.01–$0.03 per call. Failed requests are never charged.",
+    "> Costs $0.005–$0.03 per call. Failed requests are never charged.",
+    "> **5 free calls per caller per day** on every tool except the four vision tools — no signup, no wallet, just POST.",
     "",
     "## How to use",
     "",
