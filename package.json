@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node test/all-tools.js",
     "start": "./start.sh",
-    "status": "node src/status.js"
+    "status": "node src/status.js",
+    "test:live": "node test/buyer-journey.js"
   },
   "keywords": [],
   "author": "",
