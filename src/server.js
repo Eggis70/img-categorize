@@ -6,7 +6,8 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { verifyMessage } from "viem";
 import { record, summary } from "./ledger.js";
 import { TASK_META, UTIL_RUNNERS, toolsByGroup, GROUPS } from "./catalog.js";
-import { claimFreeCall, releaseFreeCall, quotaStatus, DAILY_LIMIT } from "./free-trial.js";
+import { claimFreeCall, releaseFreeCall, quotaStatus, DAILY_LIMIT, callerKey } from "./free-trial.js";
+import { recordRequest, snapshot } from "./stats.js";
 
 const { AGENT_ADDRESS, X402_FACILITATOR, X402_NETWORK, INFER_TOKEN } = process.env;
 const INFERENCE = process.env.INFERENCE || "local"; // "local" (runs models) | "proxy" (forwards to local via tunnel)
@@ -59,6 +60,7 @@ app.post(/^\/([a-z0-9_]+)$/i, async (req, res, next) => {
   try {
     const result = await runTask(task, req.body ?? {});
     record({ type: "free_trial", route: `POST /${task}` });
+    recordRequest({ kind: "free", tool: task, userAgent: req.headers["user-agent"], caller: callerKey(req) });
     res.json({
       ...result,
       freeTrial: {
@@ -69,8 +71,21 @@ app.post(/^\/([a-z0-9_]+)$/i, async (req, res, next) => {
     });
   } catch (err) {
     releaseFreeCall(req); // a failed call should not burn the allowance
+    recordRequest({ kind: "error", tool: task, userAgent: req.headers["user-agent"], caller: callerKey(req) });
     res.status(err?.status ?? 422).json({ error: String(err?.message ?? "could not process request") });
   }
+});
+
+app.use((req, res, next) => {
+  if (req.method === "POST") {
+    const tool = req.path.replace(/^\//, "");
+    res.on("finish", () => {
+      if (res.statusCode === 402 && TASK_META[tool]) {
+        recordRequest({ kind: "paywall", tool, userAgent: req.headers["user-agent"], caller: callerKey(req) });
+      }
+    });
+  }
+  next();
 });
 
 app.use(paymentMiddleware(paidRoutes, resourceServer));
@@ -221,6 +236,8 @@ app.get("/", (req, res) => {
   });
 });
 
+app.get("/stats.json", (req, res) => res.json(snapshot()));
+
 app.get("/health", (req, res) => {
   const backend = INFERENCE === "local" || Boolean(upstream);
   const total = Object.keys(TASK_META).length;
@@ -300,6 +317,14 @@ function openapiDoc(req) {
 }
 
 app.get("/openapi.json", (req, res) => res.json(openapiDoc(req)));
+
+const DISCOVERY_PATHS = ["/catalog.json", "/openapi.json", "/llms.txt", "/.well-known/x402", "/sitemap.xml", "/", "/dashboard"];
+app.use((req, res, next) => {
+  if (req.method === "GET" && DISCOVERY_PATHS.includes(req.path)) {
+    recordRequest({ kind: "discovery", tool: req.path, userAgent: req.headers["user-agent"], caller: callerKey(req) });
+  }
+  next();
+});
 
 app.get("/catalog.json", (req, res) => {
   const origin = `${req.protocol}://${req.get("host")}`;
@@ -502,7 +527,15 @@ const mcpRoute = mcpHandler({
   siteUrl: "https://www.blixtworks.com",
   payTo: AGENT_ADDRESS,
 });
-app.post("/mcp", mcpRoute);
+app.post("/mcp", (req, res, next) => {
+  const method = req.body?.method;
+  if (method === "initialize") {
+    recordRequest({ kind: "mcp-session", userAgent: req.body?.params?.clientInfo?.name, caller: callerKey(req) });
+  } else if (method === "tools/call") {
+    recordRequest({ kind: "mcp-tool", tool: req.body?.params?.name, userAgent: req.body?.params?.clientInfo?.name, caller: callerKey(req) });
+  }
+  next();
+}, mcpRoute);
 app.get("/mcp", mcpRoute);
 app.delete("/mcp", mcpRoute);
 
@@ -567,9 +600,11 @@ for (const task of Object.keys(TASK_META)) {
     try {
       const result = await runTask(task, body);
       record({ type: "sale", route: `POST /${task}`, priceUsd: TASK_META[task].priceUsd });
+      recordRequest({ kind: "paid", tool: task, userAgent: req.headers["user-agent"], caller: callerKey(req) });
       res.json(result);
     } catch (err) {
       record({ type: "error", route: `POST /${task}`, message: String(err?.message ?? err) });
+      recordRequest({ kind: "error", tool: task, userAgent: req.headers["user-agent"], caller: callerKey(req) });
       res.status(err?.status ?? 422).json({
         error: err?.status === 503 ? "backend unavailable, you were not charged" : String(err?.message ?? "could not process request"),
       });

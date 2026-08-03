@@ -164,15 +164,40 @@ async function keepListingFresh() {
   return { source: "402index", results: results.length ? results : ["all current"] };
 }
 
+// Poll the front door's in-memory counters into durable local history — the
+// only way to tell "nobody found us" from "visitors who did not convert".
+async function collectStats() {
+  if (!SERVICE_URL) return { source: "stats", skipped: "no service url" };
+  try {
+    const res = await fetch(`${SERVICE_URL}/stats.json`, { signal: AbortSignal.timeout(30000) });
+    if (!res.ok) return { source: "stats", error: `HTTP ${res.status}` };
+    const snap = await res.json();
+    log("traffic.jsonl", snap);
+    return {
+      source: "stats",
+      requests: snap.requests,
+      free: snap.freeTrialCalls,
+      paid: snap.paidCalls,
+      paywall: snap.paywallHits,
+      mcp: snap.mcpSessions,
+      discovery: snap.discoveryHits,
+      callers: snap.uniqueCallers,
+    };
+  } catch (err) {
+    return { source: "stats", error: String(err?.message ?? err) };
+  }
+}
+
 async function tick() {
-  const [balances, claw, bazaar, listing, heartbeat] = await Promise.all([
+  const [balances, claw, bazaar, listing, heartbeat, traffic] = await Promise.all([
     checkBalances().catch((e) => ({ error: String(e?.message ?? e) })),
     scanClawTasks(),
     scanBazaar(),
     keepListingFresh(),
     heartbeatUpstream(),
+    collectStats(),
   ]);
-  const snapshot = { balances, claw, bazaar, listing, heartbeat };
+  const snapshot = { balances, claw, bazaar, listing, heartbeat, traffic };
   log("worker.jsonl", snapshot);
   console.log(new Date().toISOString(), JSON.stringify(snapshot));
 }
